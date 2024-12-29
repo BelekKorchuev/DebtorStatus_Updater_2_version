@@ -76,7 +76,7 @@ def prepare_data_for_db(raw_data):
         short_name = raw_data.get('Краткое наименование', '')
         full_name = raw_data.get('Полное наименование', '')
         address = clean_text(raw_data.get('Адрес', ''))
-        phone_number = raw_data.geta('Телефон', '')
+        phone_number = raw_data.get('Телефон', '')
         ogrn = clean_text(raw_data.get('ОГРН', ''))
         okpo = raw_data.get('ОКПО', '')
         organizational_and_legal_form = raw_data.get('Организационно-правовая форма', '')
@@ -89,7 +89,7 @@ def prepare_data_for_db(raw_data):
         sro_au = clean_text(raw_data.get('СРО АУ', ''))
         sro_address = clean_text(raw_data.get('Адрес СРО АУ', ''))
 
-        case_number = clean_text(raw_data.get('№ дела', ''))
+        case_number = clean_text(raw_data.get('номер_дела', ''))
         text = clean_text(raw_data.get('текст', ''))
         files_link = raw_data.get('файлы', '')
 
@@ -109,18 +109,18 @@ def prepare_data_for_db(raw_data):
 
             'Полное_имя': debtor_fio,
             'ИНН': inn,
-            'дата_рождения': birth_date,
-            'место_рождения': birth_place,
+            'Дата_рождения': birth_date,
+            'Место_рождения': birth_place,
             'Регион_ведения_дела_о_банкротстве': region_of_the_bankruptcy_case,
             'ОГРНИП': ogrnip,
             'СНИЛС': snils,
             'Ранее_имевшиеся_ФИО': previous_fullname,
             'Категория_должника': type_of_debtor,
-            'место_жительства': residence,
+            'Место_жительства': residence,
             'Дополнительная_информация': additional_information,
             'Краткое_наименование': short_name,
             'Полное_наименование': full_name,
-            'адрес ': address,
+            'Адрес': address,
             'Телефон': phone_number,
             'ОГРН': ogrn,
             'ОКПО': okpo,
@@ -128,13 +128,13 @@ def prepare_data_for_db(raw_data):
 
             'номер_дела': case_number,
             'текст': text,
-            'ссылка_файл': files_link,
+            'файлы': files_link,
 
-            'ФИО_АУ': arbiter_name,
-            'адрес_корреспонденции': correspondence_address,
-            'почта': email,
+            'Арбитражный_управляющий': arbiter_name,
+            'Адрес_для_корреспонденции': correspondence_address,
+            'e_mail': email,
             'СРО_АУ': sro_au,
-            'адрес_СРО_АУ': sro_address,
+            'Адрес_СРО_АУ': sro_address,
         }
 
         return prepared_data
@@ -157,7 +157,7 @@ def status_au_updating(data):
                         ОГРНИП, СНИЛС, Ранее_имевшиеся_ФИО, Категория_должника, Место_жительства, 
                         Дополнительная_информация, Краткое_наименование, Полное_наименование, Адрес, 
                         Телефон, ОГРН, ОКПО, Организационно_правовая_форма, Арбитражный_управляющий, 
-                        Адрес_для_корреспонденции, E_mail, СРО_АУ, Адрес_СРО_АУ
+                        Адрес_для_корреспонденции, e_mail, СРО_АУ, Адрес_СРО_АУ
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                               %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 '''
@@ -197,7 +197,7 @@ def status_au_updating(data):
             data.get('Организационно_правовая_форма'),
             data.get('Арбитражный_управляющий'),
             data.get('Адрес_для_корреспонденции'),
-            data.get('E_mail'),
+            data.get('e_mail'),
             data.get('СРО_АУ'),
             data.get('Адрес_СРО_АУ')
         )
@@ -283,7 +283,7 @@ def status_updating(data):
             data.get('арбитр_ссылка'),
             data.get('Актуальность'),
             data.get('статус'),
-            data.get('номер дела'),
+            data.get('номер_дела'),
             data.get('текст'),
             data.get('файлы'),
             data.get('Полное_имя'),
@@ -306,22 +306,23 @@ def status_updating(data):
             data.get('Организационно_правовая_форма')
         )
         cursor_default.execute(query, values)
-
+        logger.info('получилось отправить в status_updating для обновления статуса')
 
         # SQL-запрос для вставки данных
         query_default = '''
                    UPDATE dolzhnik 
-                   SET ИНН_АУ = %s, текущий_статус = %s
+                   SET ИНН_АУ = %s, текущий_статус = %s, Актуальность = %s
                    WHERE Инн_Должника = %s
                    '''
 
         values_default = (
-            data.get('Инн_ау'), data.get('Актуальность'), data.get('ИНН')
+            data.get('Инн_ау'), data.get('статус'), data.get('Актуальность'), data.get('ИНН')
         )
         # Выполняем запрос с передачей данных из словаря
         cursor_default.execute(query_default, values_default)
+        logger.info('успешно отправил в таблицу dolzhnik ')
 
-        # Фиксируем изменения
+        # Фиксируем измене ния
         conn_default.commit()
 
         logger.info(f"Данные успешно добавлены в базу для {data['ИНН']}")

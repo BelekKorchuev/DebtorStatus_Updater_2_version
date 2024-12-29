@@ -8,68 +8,34 @@ from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 
 from Detecting_status_actual import detecting_actualed, source_act_with_pagination, search_act
-from Parsing_Sending_DB import parse_debtor_info, status_updating, status_au_updating, inactual_update
+from Parsing_Sending_DB import parse_debtor_info, status_updating, status_au_updating, inactual_update, \
+    prepare_data_for_db
 from logScript import logger
 
-# создание виртуального дисплея
-def setup_virtual_display():
-    """
-    Настройка виртуального дисплея через Xvfb.
-    """
-    try:
-        # Запуск Xvfb
-        xvfb_process = subprocess.Popen(['Xvfb', ':107', '-screen', '0', '1920x1080x24', '-nolisten', 'tcp'])
-        # Установка переменной окружения DISPLAY
-        os.environ["DISPLAY"] = ":107"
-        logger.info("Виртуальный дисплей успешно настроен с использованием Xvfb.")
-        return xvfb_process
-    except Exception as e:
-        logger.error(f"Ошибка при настройке виртуального дисплея: {e}")
-        return None
 
 # создание веб драйвера с виртуальным дисплем
-def create_webdriver_with_display():
+def create_webdriver():
     """
     Создает WebDriver с виртуальным дисплеем.
     """
     try:
-        # # Настройка виртуального дисплея
-        # xvfb_process = setup_virtual_display()
-        # if not xvfb_process:
-        #     raise RuntimeError("Не удалось настроить виртуальный дисплей.")
-
         # Настройка WebDriver
         chrome_options = Options()
-        # chrome_options.add_argument("--no-sandbox")
-        # chrome_options.add_argument("--disable-dev-shm-usage")
-        # chrome_options.add_argument("--disable-gpu")
-        # chrome_options.add_argument("--disable-extensions")
         chrome_service = Service(ChromeDriverManager().install())
 
         driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
-        # driver.xvfb_process = xvfb_process  # Сохраняем процесс для последующего завершения
         return driver
     except Exception as e:
         logger.error(f"Ошибка при создании WebDriver: {e}")
         return None
 
-# очистка виртуального дисплея
-def cleanup_virtual_display(driver):
-    """
-    Завершает процесс Xvfb.
-    """
-    if hasattr(driver, "xvfb_process") and driver.xvfb_process:
-        driver.xvfb_process.terminate()
-        logger.info("Процесс Xvfb завершен.")
-
 # Функция для перезапуска драйвера
 def restart_driver(driver):
     try:
-        cleanup_virtual_display(driver)
         driver.quit()  # Завершаем текущую сессию
     except Exception as e:
         logger.error(f"Ошибка при завершении WebDriver: {e}")
-    return create_webdriver_with_display()
+    return create_webdriver()
 
 # Функция проверки состояния браузера
 def is_browser_alive(driver):
@@ -85,79 +51,116 @@ def is_browser_alive(driver):
         logger.warning(f"Браузер не отвечает: {e}")
         return False
 
+input_file_path = "Белек АУ.xlsx"
+missing_file_path = "missing_data.xlsx"
 
+# метод для сохранения пропущенных записей
+def save_missing_data_to_excel(missing_data, file_name="missing_data.xlsx"):
+    try:
+        # Проверяем, существует ли файл
+        if os.path.exists(file_name):
+            existing_data = pd.read_excel(file_name, dtype=str).fillna("")
+            new_data = pd.DataFrame(missing_data)
+            combined_data = pd.concat([existing_data, new_data], ignore_index=True)
+        else:
+            # Если файла нет, создаем новый DataFrame
+            combined_data = pd.DataFrame(missing_data)
 
-# сохранение припушенных ссылок
-def save_skipped_links_to_csv(file_path, skipped_links):
-    if skipped_links:
-        write_mode = 'a' if os.path.exists(file_path) else 'w'
-        with open(file_path, mode=write_mode, newline='', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, fieldnames=["ФИО", "Ссылка"])
-            if write_mode == 'w':  # Добавляем заголовки только для нового файла
-                writer.writeheader()
-            writer.writerows(skipped_links)
-        logger.info(f"Пропущенные ссылки сохранены в файл: {file_path}")
+        # Сохраняем данные в Excel
+        combined_data.to_excel(file_name, index=False)
+        logger.info(f"Пропущенные данные успешно сохранены в файл {file_name}")
+    except Exception as e:
+        logger.error(f"Ошибка при сохранении пропущенных данных в файл {file_name}: {e}")
 
 # основная функция для обработки
 def main():
     try:
-        driver = create_webdriver_with_display()  # Инициализация WebDriver
+        driver = create_webdriver()  # Инициализация WebDriver
 
         # Проверка, нужно ли перезапустить драйвер
         if not is_browser_alive(driver):
             logger.warning("Браузер перестал отвечать. Перезапуск...")
             driver = restart_driver(driver)
 
+        # Проверка существования входного файла
+        if not os.path.exists(input_file_path):
+            raise FileNotFoundError(f"Файл {input_file_path} не найден.")
+
         # по строчная обработка строк их файла
-        df = pd.read_excel(file_path)
+        df = pd.read_excel(input_file_path)
+
+        if df.empty:
+            raise ValueError(f"Файл {input_file_path} пуст.")
 
         # Проверяем наличие нужных столбцов
-        required_columns = ['ФИО', 'Ссылка на должника']
+        required_columns = ['ИНН АУ', 'Должник ссылка']
         if not all(column in df.columns for column in required_columns):
             raise ValueError(f"В Excel-файле должны быть столбцы: {', '.join(required_columns)}")
 
+        missing_data = []  # Список для пропущенных данных
+
         # Обработка каждой строки
         for index, row in df.iterrows():
-            inn_au = row['Инн_ау']
-            link_debtor = row['Ссылка на должника']
+            inn_au = row['ИНН АУ']
+            link_debtor = row['Должник ссылка']
 
             logger.info(f"Начало обработки для {inn_au} по ссылке {link_debtor}")
 
             try:
                 # парсинг основной инфы
-                mian_data, soup = parse_debtor_info(driver, link_debtor, inn_au)
+                main_data, soup = parse_debtor_info(driver, link_debtor, inn_au)
 
                 # если нет данных или не получилось спарсить то сохранение и пропуск
-                if mian_data is None:
-                    # сохранение с экзель пропущенных ссылок
+                if main_data is None:
+                    logger.warning(f"Не удалось спарсить данные для {inn_au}, добавляем в пропущенные.")
+                    missing_data.append({'Инн_ау': str(inn_au), 'Ссылка на должника': str(link_debtor), 'Причина': 'Нет данных'})
                     continue
 
                 # определение статуса
-                data = detecting_actualed(driver, soup, mian_data)
+                data = detecting_actualed(driver, soup, main_data)
+                logger.info(f'проверка первой строки: {data}')
 
                 # если должник неактуален, то сохранение и переход к след должнику
                 if "Не актуален" in data:
                     inactual_update(data)
-                    # не актуален переход к след должнику
+                    logger.info(f"Должник {inn_au} не актуален, пропускаем.")
                     continue
 
                 # поиск всех актов
                 list_of_act = source_act_with_pagination(driver, soup, data)
+                logger.info(f'список актов должника: {list_of_act}')
 
                 # определение статуса
                 dict_of_data = search_act(driver, list_of_act)
+                logger.info(f'результат поиска акта: {dict_of_data}')
 
                 is_parsed_arbitr = dict_of_data.get('Арбитражный управляющий')
+                logger.info(f'is_parsed_arbitr: {is_parsed_arbitr}')
+
+
+
                 if is_parsed_arbitr is None:
-                    status_updating(dict_of_data)
+                    prepered_data = prepare_data_for_db(dict_of_data)
+                    status_updating(prepered_data)
                 else:
-                    status_au_updating(dict_of_data)
-
-
+                    prepered_data = prepare_data_for_db(dict_of_data)
+                    status_au_updating(prepered_data)
 
             except Exception as e:
                 logger.error(f"Неожиданная ошибка при обработке {link_debtor}: {e}")
-                # запись в экезель пропущенных
+                missing_data.append({'Инн_ау': str(inn_au), 'Ссылка на должника': str(link_debtor), 'Причина': str(e)})
+
+        # Сохранение всех пропущенных данных в Excel после завершения обработки
+        if missing_data:
+            save_missing_data_to_excel(missing_data, "пропущенные_данные.xlsx")
 
     except Exception as e:
-        logger.error(f'ошибка при в основной функции')
+        logger.error(f'Ошибка в основной функции: {e}')
+
+    finally:
+        if driver:
+            driver.quit()
+            logger.info("WebDriver закрыт.")
+
+if __name__ == "__main__":
+    main()

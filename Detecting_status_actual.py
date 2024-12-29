@@ -22,7 +22,6 @@ changed_au = {'об утверждении арбитражного управл
 # Загружаем очередь из файла при старте программы
 checked_messages = deque(maxlen=500)
 
-
 # определения актуальности должника по первой строке
 def detecting_actualed(driver, soup, data):
     try:
@@ -138,6 +137,7 @@ def source_act_with_pagination(driver, soup, data):
                                     "Актуальность": data.get("Актуальность"),
                                     'статус': "статус не определен"
                                 }
+                                message_face.update(data)
                                 limit += 1
                                 messages.append(message_face)
 
@@ -241,7 +241,7 @@ def search_act(driver, list_dic):
                             value = cells[1].text.strip()
                             temporary[field] = value
 
-            if temporary.get('Судебный акт').lower() == changed_au:
+            if temporary.get('Судебный акт') == changed_au:
                 # Информация об арбитражном управляющем
                 arbiter_section = soup.find('div', string="Кем опубликовано")
                 if arbiter_section:
