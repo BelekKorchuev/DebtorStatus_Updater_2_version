@@ -159,7 +159,7 @@ def status_au_updating(data):
                         Телефон, ОГРН, ОКПО, Организационно_правовая_форма, Арбитражный_управляющий, 
                         Адрес_для_корреспонденции, e_mail, СРО_АУ, Адрес_СРО_АУ
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 '''
 
         # Значения для вставки из переданных данных
@@ -215,7 +215,7 @@ def status_au_updating(data):
 
         values_default_au = (
             data.get('ФИО_АУ'), data.get('арбитр_ссылка'), data.get('адрес_корреспонденции'),
-            data.get('почта'), data.get('СРО_АУ'), data.get('Инн_ау'),
+            data.get('почта'), data.get('СРО_АУ'), str(data.get('Инн_ау')),
         )
         # Выполняем запрос с передачей данных из словаря
         cursor_default.execute(query_default_au, values_default_au)

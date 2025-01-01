@@ -137,8 +137,6 @@ def main():
                 is_parsed_arbitr = dict_of_data.get('Арбитражный управляющий')
                 logger.info(f'is_parsed_arbitr: {is_parsed_arbitr}')
 
-
-
                 if is_parsed_arbitr is None:
                     prepered_data = prepare_data_for_db(dict_of_data)
                     status_updating(prepered_data)

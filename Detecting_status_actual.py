@@ -85,7 +85,7 @@ def source_act_with_pagination(driver, soup, data):
 
     messages = []
     limit = 0
-    checked_messages = set()
+    checked_message = set()
     visited_pages = set()
     needed_stop = False
 
@@ -108,22 +108,37 @@ def source_act_with_pagination(driver, soup, data):
                         date = cells[0].get_text(strip=True)
                         message_title = cells[1].get_text(strip=True)
                         tag = cells[1].find('a')
-                        raw_link = tag['onclick'].split("'")[1]
+
+                        if tag:
+                            if 'href' in tag.attrs:
+                                raw_link = tag['href']
+                            elif 'onclick' in tag.attrs:
+                                try:
+                                    raw_link = tag['onclick'].split("'")[1]
+                                except IndexError:
+                                    logger.error(f"Ошибка при разборе 'onclick': {tag['onclick']}")
+                                    raw_link = None
+                            else:
+                                raw_link = None
+                                logger.warning("Элемент <a> не содержит 'href' или 'onclick'")
+                        else:
+                            tag = None
+                            logger.warning("Элемент <a> отсутствует")
+
                         link = f"https://old.bankrot.fedresurs.ru{raw_link}"
 
                         link_arbitr = cells[2].find("a")["href"] if cells[2].find("a") else None
                         published_by = cells[2].get_text(strip=True)
 
-                        if link in checked_messages:
+                        if link in checked_message:
                             needed_stop = True
                             break
 
-                        checked_messages.add(link)
-                        logger.info(message_title)
-                        if tag and 'onclick' in tag.attrs:  # Безопасная проверка наличия атрибута
+                        checked_message.add(link)
+                        logger.info(f'нашел {message_title}')
+                        if link:
                             logger.info(f"Ссылка на сообщение: {link}")
                             if "Сообщение о судебном акте" in message_title:
-                                logger.info(f'нашел {message_title}')
 
                                 message_face = {
                                     "дата": date,
@@ -158,6 +173,11 @@ def source_act_with_pagination(driver, soup, data):
                         href = page_element['href']
                         page_action = href.split("'")[3]  # Получаем 'Page$31'
                         logger.info(f"Обнаружено действие: {page_action}")
+
+                        if page_action == 'Page$1':
+                            logger.info('уже проверял первую страницу')
+                            visited_pages.add(page_action)
+                            continue
 
                         if page_action in visited_pages:
                             logger.info(f"Страница {page_action} уже обработана, пропускаем")
@@ -241,20 +261,25 @@ def search_act(driver, list_dic):
                             value = cells[1].text.strip()
                             temporary[field] = value
 
-            if temporary.get('Судебный акт') == changed_au:
-                # Информация об арбитражном управляющем
-                arbiter_section = soup.find('div', string="Кем опубликовано")
-                if arbiter_section:
-                    arbiter_table = arbiter_section.find_next('table')
-                    if arbiter_table:
-                        arbiter_rows = arbiter_table.find_all('tr')
-                        for row in arbiter_rows:
-                            cells = row.find_all('td')
-                            if len(cells) == 2:
-                                field = cells[0].text.strip()
-                                value = cells[1].text.strip()
-                                if not arbitr_data:
+            if temporary.get('Судебный акт') in changed_au:
+                logger.info(f'Судебный акт это СМЕНА АУ')
+                if not arbitr_data:
+                    # Информация об арбитражном управляющем
+                    arbiter_section = soup.find('div', string="Кем опубликовано")
+                    if arbiter_section:
+                        arbiter_table = arbiter_section.find_next('table')
+                        if arbiter_table:
+                            arbiter_rows = arbiter_table.find_all('tr')
+                            for row in arbiter_rows:
+                                cells = row.find_all('td')
+                                if len(cells) == 2:
+                                    field = cells[0].text.strip()
+                                    value = cells[1].text.strip()
                                     arbitr_data[field] = value
+
+                            arbitr_data['арбитр'] = dic.get('арбитр')
+                            arbitr_data['арбитр_ссылка'] = dic.get('арбитр_ссылка')
+                            logger.info(f'записал данные ау: {arbitr_data}')
 
             text_section = soup.find_all('div', class_='msg')
             temporary['текст'] = "; ".join(text.text.strip() for text in text_section if text.text.strip())
@@ -286,7 +311,8 @@ def search_act(driver, list_dic):
                 continue
 
             if arbitr_data:
-                dic.uptare(arbitr_data)
+                logger.info(f'записал все данные нового АУ')
+                dic.update(arbitr_data)
 
             logger.info(f'НУЖНЫЙ акт')
 
