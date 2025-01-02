@@ -3,7 +3,7 @@ from collections import deque
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from logScript import logger
+import logging
 from bs4 import BeautifulSoup
 from selenium.common import WebDriverException
 
@@ -29,59 +29,59 @@ def detecting_actualed(driver, soup, data):
         if table:
             rows = table.find_all('tr')
             cells = rows[1].find_all('td')
-            logger.info('Последнее сообщение найдено')
+            logging.info('Последнее сообщение найдено')
             if len(cells) == 4:
                 status = cells[1].text.strip()
-                logger.info(f'язейка собщения {status}')
+                logging.info(f'язейка собщения {status}')
                 inner_link = cells[1].find("a")["href"] if cells[1].find("a") else None
                 inner_link_http = f"https://old.bankrot.fedresurs.ru/{inner_link}"
                 if "Сообщение о судебном акте" in status:
-                    logger.info(f"ячейка это {status}")
-                    logger.info(f'ссылка на сообшение {inner_link_http}')
+                    logging.info(f"ячейка это {status}")
+                    logging.info(f'ссылка на сообшение {inner_link_http}')
                     try:
                         driver.get(inner_link_http)
                         html2 = driver.page_source
                         soup = BeautifulSoup(html2, 'html.parser')
                         table = soup.find('table', class_='headInfo')
-                        logger.info('зашел в сообщение о акте')
+                        logging.info('зашел в сообщение о акте')
                         if table:
                             rows = table.find_all('tr')
-                            logger.info("нашел tr")
+                            logging.info("нашел tr")
                             for rower in rows:
                                 cells = rower.find_all('td')
-                                logger.info('нашел td')
+                                logging.info('нашел td')
                                 if len(cells) == 2:  # Убедимся, что строка содержит две ячейки
                                     field_name = cells[0].text.strip()  # Название поля в первой ячейке
                                     field_value = cells[1].text.strip()  # Значение поля во второй ячейке
-                                    logger.info(f"Поле: {field_name}, Значение: {field_value}")
+                                    logging.info(f"Поле: {field_name}, Значение: {field_value}")
 
                                     if "судебный акт" in field_name.lower() or "тип решения" in field_name.lower():
                                         if field_value.lower() in list_of_incorrect_type:
                                             data['Актуальность'] = "неактуален"
-                                            logger.info(f"Неактуален: {field_value}")
+                                            logging.info(f"Неактуален: {field_value}")
                                             # сразу переход к след должнику
                                             return "Не актуален"
                                         else:
                                             data['Актуальность'] = "актуален"
-                                            logger.info("Актуален")
+                                            logging.info("Актуален")
                                             # дальше поиск статуса
                                             return data
 
                     except WebDriverException as e:
-                        logger.error(f"Ошибка при переходе по внутренней ссылке {inner_link}: {e}")
+                        logging.error(f"Ошибка при переходе по внутренней ссылке {inner_link}: {e}")
                 else:
                     data['Актуальность'] = "актуален"
-                    logger.info('актуален')
+                    logging.info('актуален')
                     # дальше поиск статуса
                     return data
 
     except Exception as e:
-        logger.error(f'проверить первую строку не получилось')
+        logging.error(f'проверить первую строку не получилось')
         return None
 
 # поиск 5 актов или всех актов если их меньше 5
 def source_act_with_pagination(driver, soup, data):
-    logger.info('началась поиск всех актов у должника')
+    logging.info('началась поиск всех актов у должника')
 
     messages = []
     limit = 0
@@ -95,15 +95,15 @@ def source_act_with_pagination(driver, soup, data):
 
         table = soup.find('table', class_='bank')
         if table:
-            logger.info('нашел таблицу')
+            logging.info('нашел таблицу')
             rows = table.find_all('tr')
             for row in rows:
-                logger.info('нашел строки')
+                logging.info('нашел строки')
                 row_class = row.get('class', [])
                 if not row_class or 'row' in row_class:
                     # Если это строка с данными сообщения
                     cells = row.find_all('td')
-                    if len(cells) >= 4:
+                    if len(cells) == 4:
                         # Извлекаем данные из ячеек
                         date = cells[0].get_text(strip=True)
                         message_title = cells[1].get_text(strip=True)
@@ -116,14 +116,14 @@ def source_act_with_pagination(driver, soup, data):
                                 try:
                                     raw_link = tag['onclick'].split("'")[1]
                                 except IndexError:
-                                    logger.error(f"Ошибка при разборе 'onclick': {tag['onclick']}")
+                                    logging.error(f"Ошибка при разборе 'onclick': {tag['onclick']}")
                                     raw_link = None
                             else:
                                 raw_link = None
-                                logger.warning("Элемент <a> не содержит 'href' или 'onclick'")
+                                logging.warning("Элемент <a> не содержит 'href' или 'onclick'")
                         else:
                             tag = None
-                            logger.warning("Элемент <a> отсутствует")
+                            logging.warning("Элемент <a> отсутствует")
 
                         link = f"https://old.bankrot.fedresurs.ru{raw_link}"
 
@@ -135,9 +135,9 @@ def source_act_with_pagination(driver, soup, data):
                             break
 
                         checked_message.add(link)
-                        logger.info(f'нашел {message_title}')
+                        logging.info(f'нашел {message_title}')
                         if link:
-                            logger.info(f"Ссылка на сообщение: {link}")
+                            logging.info(f"Ссылка на сообщение: {link}")
                             if "Сообщение о судебном акте" in message_title:
 
                                 message_face = {
@@ -160,27 +160,27 @@ def source_act_with_pagination(driver, soup, data):
                 if 'pager' in row_class:
                     pager_table = row.find_next('table')
                     if not pager_table:
-                        logger.info("Таблица пагинации не найдена")
+                        logging.info("Таблица пагинации не найдена")
                         return
 
                     page_elements = pager_table.find_all('a', href=True)
                     if not page_elements:
-                        logger.info("Ссылки пагинации отсутствуют")
+                        logging.info("Ссылки пагинации отсутствуют")
                         return
 
                     for page_element in page_elements:
 
                         href = page_element['href']
                         page_action = href.split("'")[3]  # Получаем 'Page$31'
-                        logger.info(f"Обнаружено действие: {page_action}")
+                        logging.info(f"Обнаружено действие: {page_action}")
 
                         if page_action == 'Page$1':
-                            logger.info('уже проверял первую страницу')
+                            logging.info('уже проверял первую страницу')
                             visited_pages.add(page_action)
                             continue
 
                         if page_action in visited_pages:
-                            logger.info(f"Страница {page_action} уже обработана, пропускаем")
+                            logging.info(f"Страница {page_action} уже обработана, пропускаем")
                             continue
 
                         # Проверяем, начинается ли href с нужного JavaScript
@@ -197,7 +197,7 @@ def source_act_with_pagination(driver, soup, data):
                                         theForm.submit();
                                     }
                                     """
-                                logger.info(f"Клик по элементу пагинации: {page_action}")
+                                logging.info(f"Клик по элементу пагинации: {page_action}")
                                 driver.execute_script(script, 'ctl00$cphBody$gvMessages', page_action)
 
                                 # element.click()  # Кликаем по элементу
@@ -212,13 +212,13 @@ def source_act_with_pagination(driver, soup, data):
                                 visited_pages.add(page_action)
                                 break
                             except Exception as e:
-                                logger.error(f"Ошибка при клике на элемент пагинации: {e}")
+                                logging.error(f"Ошибка при клике на элемент пагинации: {e}")
                                 return
                     else:
-                        logger.info("Дополнительных страниц для перехода не найдено")
-                        return
+                        logging.info("Дополнительных страниц для перехода не найдено")
 
-    logger.info('закончил поиск актов')
+
+    logging.info('закончил поиск актов')
     return messages
 
 # метод для определения нужного акта и статуса должника
@@ -230,7 +230,7 @@ def search_act(driver, list_dic):
             link = dic.get('сообщение_ссылка', '')
 
             driver.get(link)
-            logger.info(f'текущее сообщение: {link}')
+            logging.info(f'текущее сообщение: {link}')
 
             temporary = {}
 
@@ -262,7 +262,7 @@ def search_act(driver, list_dic):
                             temporary[field] = value
 
             if temporary.get('Судебный акт') in changed_au:
-                logger.info(f'Судебный акт это СМЕНА АУ')
+                logging.info(f'Судебный акт это СМЕНА АУ')
                 if not arbitr_data:
                     # Информация об арбитражном управляющем
                     arbiter_section = soup.find('div', string="Кем опубликовано")
@@ -279,7 +279,7 @@ def search_act(driver, list_dic):
 
                             arbitr_data['арбитр'] = dic.get('арбитр')
                             arbitr_data['арбитр_ссылка'] = dic.get('арбитр_ссылка')
-                            logger.info(f'записал данные ау: {arbitr_data}')
+                            logging.info(f'записал данные ау: {arbitr_data}')
 
             text_section = soup.find_all('div', class_='msg')
             temporary['текст'] = "; ".join(text.text.strip() for text in text_section if text.text.strip())
@@ -303,22 +303,22 @@ def search_act(driver, list_dic):
             act_status = temporary.get('Судебный акт', '')
 
             if act_status == "об утверждении арбитражного управляющего":
-                logger.info(f'первый акт про СМЕНУ АУ')
+                logging.info(f'первый акт про СМЕНУ АУ')
                 continue
 
             if act_status not in list_of_status:
-                logger.info(f'акт не тот, что нам нужен')
+                logging.info(f'акт не тот, что нам нужен')
                 continue
 
             if arbitr_data:
-                logger.info(f'записал все данные нового АУ')
+                logging.info(f'записал все данные нового АУ')
                 dic.update(arbitr_data)
 
-            logger.info(f'НУЖНЫЙ акт')
+            logging.info(f'НУЖНЫЙ акт')
 
             return dic
 
         return dic
     except Exception as e:
-        logger.error(f"НЕ удалось спарсить найденный акт у должника {list_dic[0]['должник_ссылка']}: {e}")
+        logging.error(f"НЕ удалось спарсить найденный акт у должника {list_dic[0]['должник_ссылка']}: {e}")
         return

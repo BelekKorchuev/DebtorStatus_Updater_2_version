@@ -2,7 +2,7 @@ import re
 import time
 from dotenv import load_dotenv
 from psycopg2 import OperationalError
-from logScript import logger
+import logging
 import os
 import psycopg2
 from bs4 import BeautifulSoup
@@ -27,7 +27,7 @@ def get_db_connection():
         )
         return connection
     except OperationalError as e:
-        logger.error(f"Ошибка при подключении: {e}")
+        logging.error(f"Ошибка при подключении: {e}")
         time.sleep(5)
         return get_db_connection()
 
@@ -139,7 +139,7 @@ def prepare_data_for_db(raw_data):
 
         return prepared_data
     except Exception as e:
-        logger.error(f'ошибка в методе prepare_data_for_db: {e}')
+        logging.error(f'ошибка в методе prepare_data_for_db: {e}')
 
 # отправка данных для обновления статуса в базы данных OurCRM и default_db
 def status_au_updating(data):
@@ -203,7 +203,7 @@ def status_au_updating(data):
         )
 
         cursor_default.execute(query, values)
-        logger.info('отправил данные для обновления смену АУ')
+        logging.info('отправил данные для обновления смену АУ')
 
         # SQL-запрос для вставки данных
         query_default_au = '''
@@ -232,15 +232,15 @@ def status_au_updating(data):
         )
         # Выполняем запрос с передачей данных из словаря
         cursor_default.execute(query_default, values_default)
-        logger.info('отправил данные в наш базу')
+        logging.info('отправил данные в наш базу')
 
         # Фиксируем изменения
         conn_default.commit()
 
 
-        logger.info(f"Данные успешно добавлены в базу для {data['ИНН']}")
+        logging.info(f"Данные успешно добавлены в базу для {data['ИНН']}")
     except Exception as e:
-        logger.error(f"Ошибка вставки данных в базы для ИНН: {data.get('ИНН')}. Ошибка: {e}")
+        logging.error(f"Ошибка вставки данных в базы для ИНН: {data.get('ИНН')}. Ошибка: {e}")
         # Фиксируем изменения
         if conn_default:
             conn_default.rollback()
@@ -306,7 +306,7 @@ def status_updating(data):
             data.get('Организационно_правовая_форма')
         )
         cursor_default.execute(query, values)
-        logger.info('получилось отправить в status_updating для обновления статуса')
+        logging.info('получилось отправить в status_updating для обновления статуса')
 
         # SQL-запрос для вставки данных
         query_default = '''
@@ -320,14 +320,14 @@ def status_updating(data):
         )
         # Выполняем запрос с передачей данных из словаря
         cursor_default.execute(query_default, values_default)
-        logger.info('успешно отправил в таблицу dolzhnik ')
+        logging.info('успешно отправил в таблицу dolzhnik ')
 
         # Фиксируем измене ния
         conn_default.commit()
 
-        logger.info(f"Данные успешно добавлены в базу для {data['ИНН']}")
+        logging.info(f"Данные успешно добавлены в базу для {data['ИНН']}")
     except Exception as e:
-        logger.error(f"Ошибка вставки данных в базы для ИНН: {data.get('ИНН')}. Ошибка: {e}")
+        logging.error(f"Ошибка вставки данных в базы для ИНН: {data.get('ИНН')}. Ошибка: {e}")
         # Фиксируем изменения
         if conn_default:
             conn_default.rollback()
@@ -362,9 +362,9 @@ def inactual_update(data):
         conn_default.commit()
 
 
-        logger.info(f"Данные успешно добавлены в базу для {data.get('ИНН')}")
+        logging.info(f"Данные успешно добавлены в базу для {data.get('ИНН')}")
     except Exception as e:
-        logger.error(f"Ошибка вставки данных в базы для ИНН: {data.get('ИНН')}. Ошибка: {e}")
+        logging.error(f"Ошибка вставки данных в базы для ИНН: {data.get('ИНН')}. Ошибка: {e}")
         # Фиксируем изменения
         if conn_default:
             conn_default.rollback()
@@ -413,12 +413,12 @@ def parse_debtor_info(driver, link_debtor, inn_au):
 
             # Объединяем Фамилию, Имя и Отчество в один столбец
             data["Полное_имя"] = " ".join(filter(None, [last_name, first_name, middle_name]))
-            logger.info(f"Полное имя: {data['Полное_имя']}")
+            logging.info(f"Полное имя: {data['Полное_имя']}")
 
-            logger.info(f'Данные должника спарсины {data}')
+            logging.info(f'Данные должника спарсины {data}')
 
         return data, soup
     except Exception as e:
-        logger.error(f'не удалось спарсить инфу должника')
+        logging.error(f'не удалось спарсить инфу должника')
         return None
 
