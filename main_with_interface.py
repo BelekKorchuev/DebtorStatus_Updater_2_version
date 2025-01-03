@@ -195,11 +195,18 @@ def main(input_file_path, missing_file_path, update_progress):
                     continue
 
                 data = detecting_actualed(driver, soup, main_data)
+                # если должник неактуален, то сохранение и переход к след должнику
                 if "Не актуален" in data:
-                    inactual_update(data)
+                    inactual_update(main_data)
+                    logging.info(f"Должник {link_debtor} не актуален, пропускаем.")
                     continue
 
                 list_of_act = source_act_with_pagination(driver, soup, data)
+                if not list_of_act:
+                    inactual_update(main_data)
+                    logging.info(f"Должник {link_debtor} не актуален, пропускаем.")
+                    continue
+
                 dict_of_data = search_act(driver, list_of_act)
                 is_parsed_arbitr = dict_of_data.get('Арбитражный управляющий')
 

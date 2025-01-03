@@ -51,7 +51,7 @@ def is_browser_alive(driver):
         logger.warning(f"Браузер не отвечает: {e}")
         return False
 
-input_file_path = "Белек АУ.xlsx"
+input_file_path = "для проверки.xlsx"
 missing_file_path = "missing_data.xlsx"
 
 # метод для сохранения пропущенных записей
@@ -122,13 +122,18 @@ def main():
 
                 # если должник неактуален, то сохранение и переход к след должнику
                 if "Не актуален" in data:
-                    inactual_update(data)
-                    logger.info(f"Должник {inn_au} не актуален, пропускаем.")
+                    inactual_update(main_data)
+                    logger.info(f"Должник {link_debtor} не актуален, пропускаем.")
                     continue
 
                 # поиск всех актов
                 list_of_act = source_act_with_pagination(driver, soup, data)
                 logger.info(f'список актов должника: {list_of_act}')
+
+                if not list_of_act:
+                    inactual_update(main_data)
+                    logger.info(f"Должник {link_debtor} не актуален, пропускаем.")
+                    continue
 
                 # определение статуса
                 dict_of_data = search_act(driver, list_of_act)

@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import logging
+# from logScript import logger
 from bs4 import BeautifulSoup
 from selenium.common import WebDriverException
 
@@ -112,6 +113,7 @@ def source_act_with_pagination(driver, soup, data):
                         if tag:
                             if 'href' in tag.attrs:
                                 raw_link = tag['href']
+                                logging.info(raw_link)
                             elif 'onclick' in tag.attrs:
                                 try:
                                     raw_link = tag['onclick'].split("'")[1]
@@ -124,8 +126,12 @@ def source_act_with_pagination(driver, soup, data):
                         else:
                             tag = None
                             logging.warning("Элемент <a> отсутствует")
+                            continue
 
                         link = f"https://old.bankrot.fedresurs.ru{raw_link}"
+                        if "javascript:__doPostBa" in link:
+                            logging.info(f'это ссылка пагинации')
+                            continue
 
                         link_arbitr = cells[2].find("a")["href"] if cells[2].find("a") else None
                         published_by = cells[2].get_text(strip=True)
@@ -171,6 +177,7 @@ def source_act_with_pagination(driver, soup, data):
                     for page_element in page_elements:
 
                         href = page_element['href']
+                        logging.info(f'ссылка погинации {href}')
                         page_action = href.split("'")[3]  # Получаем 'Page$31'
                         logging.info(f"Обнаружено действие: {page_action}")
 

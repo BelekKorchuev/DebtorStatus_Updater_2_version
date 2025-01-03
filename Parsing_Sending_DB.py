@@ -3,6 +3,7 @@ import time
 from dotenv import load_dotenv
 from psycopg2 import OperationalError
 import logging
+# from logScript import logger
 import os
 import psycopg2
 from bs4 import BeautifulSoup
@@ -347,13 +348,13 @@ def inactual_update(data):
 
         # SQL-запрос для вставки данных
         query_default = '''
-                           UPDATE debtor_status_newau 
-                           SET Инн_ау = %s, Актуальность = %s
-                           WHERE должник_ссылка = %s
+                           UPDATE dolzhnik 
+                           SET ИНН_АУ = %s, Актуальность = %s
+                           WHERE Должник_ссылка_ЕФРСБ = %s
                            '''
 
         values_default = (
-            data.get('Инн_ау'), data.get('Актуальность'), data.get('должник_ссылка')
+            data.get('Инн_ау'), data.get('Актуальность', 'Не актуален'), data.get('должник_ссылка')
         )
         # Выполняем запрос с передачей данных из словаря
         cursor_default.execute(query_default, values_default)
