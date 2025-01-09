@@ -420,6 +420,6 @@ def parse_debtor_info(driver, link_debtor, inn_au):
 
         return data, soup
     except Exception as e:
-        logging.error(f'не удалось спарсить инфу должника')
+        logging.error(f'не удалось спарсить инфу должника: {e}')
         return None
 
