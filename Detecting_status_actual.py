@@ -4,7 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import logging
-# from logScript import logger
+# from logScript import logging
 from bs4 import BeautifulSoup
 from selenium.common import WebDriverException
 
@@ -58,7 +58,6 @@ def detecting_actualed(driver, soup, data):
 
                                     if "судебный акт" in field_name.lower() or "тип решения" in field_name.lower():
                                         if field_value.lower() in list_of_incorrect_type:
-                                            data['Актуальность'] = "неактуален"
                                             logging.info(f"Неактуален: {field_value}")
                                             # сразу переход к след должнику
                                             return "Не актуален"
@@ -91,7 +90,7 @@ def source_act_with_pagination(driver, soup, data):
     needed_stop = False
 
     while not needed_stop:
-        if limit == 5:
+        if limit == 10:
             needed_stop = True
 
         table = soup.find('table', class_='bank')
@@ -286,25 +285,29 @@ def search_act(driver, list_dic):
 
                             arbitr_data['арбитр'] = dic.get('арбитр')
                             arbitr_data['арбитр_ссылка'] = dic.get('арбитр_ссылка')
-                            logging.info(f'записал данные ау: {arbitr_data}')
+
+                    file_links = []
+                    pinned_files = soup.find('a', class_='Reference')
+                    if pinned_files and pinned_files.find('div', string='Прикреплённые файлы'):
+                        files_ul = pinned_files.find('ul').find_all('a', class_='Reference')
+
+                        if files_ul:
+                            for file in files_ul:
+                                file_link = file['href'].replace("&amp;", "&")
+                                file_links.append(f'https://old.bankrot.fedresurs.ru/{file_link}')
+
+                        arbitr_data['файлы'] = "&&& ".join(file_links)
+                        arbitr_data['статус_утверждения_АУ'] = 'есть акт'
+                    else:
+                        arbitr_data['статус_утверждения_АУ'] = 'есть акт(нету файла)'
+
+                    logging.info(f'записал данные ау: {arbitr_data}')
 
             text_section = soup.find_all('div', class_='msg')
             temporary['текст'] = "; ".join(text.text.strip() for text in text_section if text.text.strip())
 
-            file_links = []
-            pinned_files = soup.find_all('a', class_='Reference')
-            if pinned_files:
-                for file in pinned_files:
-                    file_link = file['href'].replace("&amp;", "&")
-                    file_links.append(f'https://old.bankrot.fedresurs.ru/{file_link}')
-            else:
-                file_links.append("Нет файлов")
-
-            temporary['файлы'] = "&&& ".join(file_links)
-
             dic['номер_дела'] = temporary.get('№ дела')
             dic['текст'] = temporary.get('текст')
-            dic['файлы'] = temporary.get('файлы')
 
             dic['статус'] = temporary.get('Судебный акт', 'статус не определен')
             act_status = temporary.get('Судебный акт', '')
@@ -329,3 +332,59 @@ def search_act(driver, list_dic):
     except Exception as e:
         logging.error(f"НЕ удалось спарсить найденный акт у должника {list_dic[0]['должник_ссылка']}: {e}")
         return
+
+# метод для поиска документа про смену АУ если сначала вышел статус
+def search_au_doc(driver, list_dic, data):
+    try:
+        doc = {}
+        for dic in list_dic:
+            link = dic.get('сообщение_ссылка', '')
+
+            driver.get(link)
+            logging.info(f'текущее сообщение: {link}')
+
+            temporary = {}
+
+            # Получение HTML-кода страницы
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+            # Основная информация
+            table_main = soup.find('table', class_='headInfo')
+            if table_main:
+                rows = table_main.find_all('tr')
+                for row in rows:
+                    cells = row.find_all('td')
+                    if len(cells) == 2:
+                        field = cells[0].text.strip()
+                        value = cells[1].text.strip()
+                        temporary[field] = value
+
+            # парсит если новый АУ его данные и документ
+            if temporary.get('Судебный акт') in changed_au:
+                logging.info(f'Судебный акт это СМЕНА АУ')
+
+                file_links = []
+                pinned_files = soup.find('div', class_='files')
+
+                if pinned_files and pinned_files.find('div', string='Прикреплённые файлы'):
+                    files_ul = pinned_files.find('ul').find_all('a', class_='Reference')
+
+                    if files_ul:
+                        for file in files_ul:
+                            file_link = file['href'].replace("&amp;", "&")
+                            file_links.append(f'https://old.bankrot.fedresurs.ru/{file_link}')
+
+                    doc['файлы'] = "&&& ".join(file_links)
+                    doc['статус_утверждения_АУ'] = 'есть акт'
+                else:
+                    doc['статус_утверждения_АУ'] = 'есть акт(нету файла)'
+
+                data.update(doc)
+                logging.info(f'нашли файл об АУ')
+                return data
+
+        logging.info('не нашел файл об АУ')
+        return data
+    except Exception as e:
+        logging.error(f"НЕ удалось спарсить документ о смене АУ у должника {list_dic[0]['Должник_ссылка_ЕФРСБ']}: {e}")
+        return None

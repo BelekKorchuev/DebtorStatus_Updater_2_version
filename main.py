@@ -7,7 +7,7 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 
-from Detecting_status_actual import detecting_actualed, source_act_with_pagination, search_act
+from Detecting_status_actual import detecting_actualed, source_act_with_pagination, search_act, search_au_doc
 from Parsing_Sending_DB import parse_debtor_info, status_updating, status_au_updating, inactual_update, \
     prepare_data_for_db
 from logScript import logger
@@ -122,6 +122,7 @@ def main():
 
                 # если должник неактуален, то сохранение и переход к след должнику
                 if "Не актуален" in data:
+                    missing_data.append({'Инн_ау': str(inn_au), 'Ссылка на должника': str(link_debtor), 'Причина': 'неактуален'})
                     inactual_update(main_data)
                     logger.info(f"Должник {link_debtor} не актуален, пропускаем.")
                     continue
@@ -138,6 +139,17 @@ def main():
                 # определение статуса
                 dict_of_data = search_act(driver, list_of_act)
                 logger.info(f'результат поиска акта: {dict_of_data}')
+
+                if dict_of_data is None:
+                    logger.warning(f'Не удалось определить статус (search_act): {dict_of_data}')
+                    return None
+
+                found_au_doc = dict_of_data.get('Арбитражный управляющий')
+                if found_au_doc is None:
+                    logger.info(f'В начале не смог найти акт о смене')
+                    dict_of_data = search_au_doc(driver, list_of_act, dict_of_data)
+                else:
+                    logger.info('Акт о смене есть')
 
                 is_parsed_arbitr = dict_of_data.get('Арбитражный управляющий')
                 logger.info(f'is_parsed_arbitr: {is_parsed_arbitr}')
