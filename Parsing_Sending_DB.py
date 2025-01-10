@@ -246,6 +246,10 @@ def status_au_updating(data):
         # Фиксируем изменения
         if conn_default:
             conn_default.rollback()
+        return {'ИНН АУ': {data.get('ИНН')},
+                'Должник ссылка': data.get('должник_ссылка'),
+                'Причина': 'Такой должник уже есть'}
+
     finally:
         if cursor_default:
             cursor_default.close()
@@ -334,6 +338,9 @@ def status_updating(data):
         # Фиксируем изменения
         if conn_default:
             conn_default.rollback()
+        return {'ИНН АУ': {data.get('ИНН')},
+                'Должник ссылка': data.get('должник_ссылка'),
+                'Причина': 'Такой должник уже есть'}
     finally:
         if cursor_default:
             cursor_default.close()

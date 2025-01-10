@@ -226,9 +226,12 @@ def main(input_file_path, missing_file_path, update_progress):
 
                 prepered_data = prepare_data_for_db(dict_of_data)
                 if is_parsed_arbitr is None:
-                    status_updating(prepered_data)
+                    error_db = status_updating(prepered_data)
+                    missing_data.append(error_db)
                 else:
-                    status_au_updating(prepered_data)
+                    error_db = status_au_updating(prepered_data)
+                    missing_data.append(error_db)
+
 
             except Exception as e:
                 missing_data.append({'ИНН АУ': str(inn_au), 'Должник ссылка': str(link_debtor), 'Причина': str(e)})
