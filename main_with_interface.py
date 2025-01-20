@@ -42,8 +42,11 @@ def is_browser_alive(driver):
         return False
 
 # Сохранение пропущенных записей
-def save_missing_data_to_excel(missing_data, file_name="missing_data.xlsx"):
+def save_missing_data_to_excel(missing_data, file_name):
     try:
+        if not file_name:
+            raise ValueError("Имя файла для сохранения пропущенных данных не задано.")
+
         if os.path.exists(file_name):
             existing_data = pd.read_excel(file_name, dtype=str).fillna("")
             new_data = pd.DataFrame(missing_data)
@@ -129,6 +132,8 @@ class App:
             self.missing_file_path = file_path
             self.missing_file_entry.delete(0, tk.END)
             self.missing_file_entry.insert(0, file_path)
+        else:
+            logging.warning("Пользователь не выбрал файл для сохранения пропущенных данных")
 
     def start_processing(self):
         if not self.input_file_path:
@@ -144,6 +149,11 @@ class App:
 
     def run_main(self):
         try:
+            missing_file_path = self.missing_file_entry.get()
+            if not missing_file_path:
+                messagebox.showerror("Ошибка", "Выберите путь для сохранения пропущенных данных!")
+                return
+
             main(self.input_file_path, self.missing_file_path, self.update_progress)
             self.update_progress(100)  # Устанавливаем 100% после завершения
             messagebox.showinfo("Успех", "Обработка завершена!")
@@ -238,6 +248,7 @@ def main(input_file_path, missing_file_path, update_progress):
 
         if missing_data:
             save_missing_data_to_excel(missing_data, missing_file_path)
+
     except Exception as e:
         logging.error(f"Ошибка в основной функции: {e}")
     finally:

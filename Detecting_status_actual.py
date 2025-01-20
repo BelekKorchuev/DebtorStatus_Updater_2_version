@@ -12,7 +12,8 @@ from selenium.common import WebDriverException
 list_of_incorrect_type = {'о завершении конкурсного производства',
                           'о завершении реализации имущества гражданина',
                           'о прекращении производства по делу',
-                          'Определение о прекращении производства по делу'}
+                          'определение о прекращении производства по делу',
+                          "определение о завершении реализации имущества гражданина"}
 list_of_status = {'о введении наблюдения',
                   'о признании обоснованным заявления о признании гражданина банкротом и введении реструктуризации его долгов',
                   'о признании должника банкротом и открытии конкурсного производства',
@@ -87,15 +88,11 @@ def source_act_with_pagination(driver, soup, data):
     logging.info('началась поиск всех актов у должника')
 
     messages = []
-    limit = 0
     checked_message = set()
     visited_pages = set()
     needed_stop = False
 
     while not needed_stop:
-        if limit == 10:
-            needed_stop = True
-
         table = soup.find('table', class_='bank')
         if table:
             logging.info('нашел таблицу')
@@ -162,7 +159,6 @@ def source_act_with_pagination(driver, soup, data):
                                     'статус_утверждения_АУ': 'нет акта'
                                 }
                                 message_face.update(data)
-                                limit += 1
                                 messages.append(message_face)
 
                 # Если это строка с пагинацией
