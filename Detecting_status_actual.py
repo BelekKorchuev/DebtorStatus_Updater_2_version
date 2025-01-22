@@ -68,7 +68,7 @@ def detecting_actualed(driver, soup, data):
                                         else:
                                             data['Актуальность'] = "актуален"
                                             logging.info("Актуален")
-                                            # дальше поиск статуса
+                                            driver.back()
                                             return data
 
                     except WebDriverException as e:
@@ -331,7 +331,7 @@ def search_act(driver, list_dic):
         return dic
     except Exception as e:
         logging.error(f"НЕ удалось спарсить найденный акт у должника {list_dic[0]['должник_ссылка']}: {e}")
-        return
+        return None
 
 # метод для поиска документа про смену АУ если сначала вышел статус
 def search_au_doc(driver, list_dic, data):

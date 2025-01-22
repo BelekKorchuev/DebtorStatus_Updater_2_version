@@ -140,7 +140,8 @@ def prepare_data_for_db(raw_data):
 
         return prepared_data
     except Exception as e:
-        logging.error(f'ошибка в методе prepare_data_for_db: {e}')
+        logging.error(f'Ошибка в методе prepare_data_for_db: {e}')
+        return None
 
 # отправка данных для обновления статуса в базы данных OurCRM и default_db
 def status_au_updating(data):
@@ -356,6 +357,18 @@ def inactual_update(data):
         cursor_default = conn_default.cursor()
 
         # SQL-запрос для вставки данных
+        query = '''
+            INSERT INTO debtor_status_newau (
+                ИНН, должник_ссылка, Инн_ау, Актуальность
+            ) VALUES (%s, %s, %s, %s);
+        '''
+
+        # Подготовка значений для вставки
+        values = (
+            data.get('ИНН'), data.get('должник_ссылка'), data.get('Инн_ау'), data.get('Актуальность'),)
+        cursor_default.execute(query, values)
+
+        # SQL-запрос для вставки данных
         query_default = '''
                            UPDATE dolzhnik 
                            SET ИНН_АУ = %s, Актуальность = %s
@@ -386,8 +399,11 @@ def inactual_update(data):
 
 # парсинг основой инфы
 def parse_debtor_info(driver, link_debtor, inn_au):
-
-    driver.get(link_debtor)
+    try:
+        driver.get(link_debtor)
+    except Exception as e:
+        logging.error(f'ошибка открытия ссылки: {e}')
+        return None
 
     soup = BeautifulSoup(driver.page_source, 'html.parser')
 

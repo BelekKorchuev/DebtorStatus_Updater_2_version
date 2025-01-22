@@ -4,59 +4,10 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 from threading import Thread
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-
 from Detecting_status_actual import detecting_actualed, source_act_with_pagination, search_act, search_au_doc
 from Parsing_Sending_DB import parse_debtor_info, status_updating, status_au_updating, inactual_update, prepare_data_for_db
 import logging
-
-# Функция для создания WebDriver
-def create_webdriver():
-    try:
-        chrome_options = Options()
-        chrome_service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
-        return driver
-    except Exception as e:
-        logging.error(f"Ошибка при создании WebDriver: {e}")
-        return None
-
-# Перезапуск драйвера
-def restart_driver(driver):
-    try:
-        driver.quit()
-    except Exception as e:
-        logging.error(f"Ошибка при завершении WebDriver: {e}")
-    return create_webdriver()
-
-# Проверка состояния браузера
-def is_browser_alive(driver):
-    try:
-        driver.title
-        return True
-    except Exception as e:
-        logging.warning(f"Браузер не отвечает: {e}")
-        return False
-
-# Сохранение пропущенных записей
-def save_missing_data_to_excel(missing_data, file_name):
-    try:
-        if not file_name:
-            raise ValueError("Имя файла для сохранения пропущенных данных не задано.")
-
-        if os.path.exists(file_name):
-            existing_data = pd.read_excel(file_name, dtype=str).fillna("")
-            new_data = pd.DataFrame(missing_data)
-            combined_data = pd.concat([existing_data, new_data], ignore_index=True)
-        else:
-            combined_data = pd.DataFrame(missing_data)
-        combined_data.to_excel(file_name, index=False)
-        logging.info(f"Пропущенные данные успешно сохранены в файл {file_name}")
-    except Exception as e:
-        logging.error(f"Ошибка при сохранении пропущенных данных в файл {file_name}: {e}")
+from webdriver import create_webdriver, is_browser_alive, restart_driver
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -165,6 +116,23 @@ class App:
         self.progress_bar["value"] = progress
         self.progress_label.config(text=f"{progress:.0f}%")
 
+# Сохранение пропущенных записей
+def save_missing_data_to_excel(missing_data, file_name):
+    try:
+        if not file_name:
+            raise ValueError("Имя файла для сохранения пропущенных данных не задано.")
+
+        if os.path.exists(file_name):
+            existing_data = pd.read_excel(file_name, dtype=str).fillna("")
+            new_data = pd.DataFrame(missing_data)
+            combined_data = pd.concat([existing_data, new_data], ignore_index=True)
+        else:
+            combined_data = pd.DataFrame(missing_data)
+        combined_data.to_excel(file_name, index=False)
+        logging.info(f"Пропущенные данные успешно сохранены в файл {file_name}")
+    except Exception as e:
+        logging.error(f"Ошибка при сохранении пропущенных данных в файл {file_name}: {e}")
+
 # Обновленный main
 def main(input_file_path, missing_file_path, update_progress):
     try:
@@ -178,7 +146,7 @@ def main(input_file_path, missing_file_path, update_progress):
         if not os.path.exists(input_file_path):
             raise FileNotFoundError(f"Файл {input_file_path} не найден.")
 
-        df = pd.read_excel(input_file_path)
+        df = pd.read_excel(input_file_path, dtype=str)
 
         if df.empty:
             raise ValueError(f"Файл {input_file_path} пуст.")
@@ -222,7 +190,7 @@ def main(input_file_path, missing_file_path, update_progress):
 
                 if dict_of_data is None:
                     logging.warning(f'Не удалось определить статус (search_act): {dict_of_data}')
-                    return None
+                    continue
 
                 found_au_doc = dict_of_data.get('Арбитражный управляющий')
                 if found_au_doc is None:
@@ -237,14 +205,17 @@ def main(input_file_path, missing_file_path, update_progress):
                 prepered_data = prepare_data_for_db(dict_of_data)
                 if is_parsed_arbitr is None:
                     error_db = status_updating(prepered_data)
-                    missing_data.append(error_db)
+                    if error_db:
+                        missing_data.append(error_db)
                 else:
                     error_db = status_au_updating(prepered_data)
-                    missing_data.append(error_db)
+                    if error_db:
+                        missing_data.append(error_db)
 
 
             except Exception as e:
                 missing_data.append({'ИНН АУ': str(inn_au), 'Должник ссылка': str(link_debtor), 'Причина': str(e)})
+                driver = restart_driver(driver)
 
         if missing_data:
             save_missing_data_to_excel(missing_data, missing_file_path)
