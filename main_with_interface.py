@@ -34,42 +34,54 @@ class App:
         self.create_widgets()
 
     def create_widgets(self):
+        # Основной фрейм для организации
+        main_frame = tk.Frame(self.root)
+        main_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+        # Левый фрейм (для кнопок и выбора файлов)
+        left_frame = tk.Frame(main_frame)
+        left_frame.grid(row=0, column=0, sticky="nw")
+
+        # Правый фрейм (для логов)
+        right_frame = tk.Frame(main_frame)
+        right_frame.grid(row=0, column=1, sticky="ne", padx=10)
+
         # Выбор файла для обработки
-        tk.Label(self.root, text="Файл Excel с данными:").pack(pady=5)
-        self.file_entry = tk.Entry(self.root, width=50)
-        self.file_entry.pack(pady=5)
-        tk.Button(self.root, text="Выбрать файл", command=self.select_file).pack(pady=5)
+        tk.Label(left_frame, text="Файл Excel с данными:").pack(pady=5, anchor="w")
+        self.file_entry = tk.Entry(left_frame, width=50)
+        self.file_entry.pack(pady=5, anchor="w")
+        tk.Button(left_frame, text="Выбрать файл", command=self.select_file).pack(pady=5, anchor="w")
 
         # Выбор столбцов
-        tk.Label(self.root, text="Выберите столбцы:").pack(pady=5)
-        tk.Label(self.root, text="ИНН АУ:").pack()
-        self.inn_combobox = ttk.Combobox(self.root, state="readonly", width=50)
-        self.inn_combobox.pack(pady=5)
+        tk.Label(left_frame, text="Выберите столбцы:").pack(pady=5, anchor="w")
+        tk.Label(left_frame, text="ИНН АУ:").pack(anchor="w")
+        self.inn_combobox = ttk.Combobox(left_frame, state="readonly", width=50)
+        self.inn_combobox.pack(pady=5, anchor="w")
 
-        tk.Label(self.root, text="Ссылка на должника:").pack()
-        self.link_combobox = ttk.Combobox(self.root, state="readonly", width=50)
-        self.link_combobox.pack(pady=5)
+        tk.Label(left_frame, text="Ссылка на должника:").pack(anchor="w")
+        self.link_combobox = ttk.Combobox(left_frame, state="readonly", width=50)
+        self.link_combobox.pack(pady=5, anchor="w")
 
         # Выбор файла для сохранения пропущенных данных
-        tk.Label(self.root, text="Файл для сохранения пропущенных данных:").pack(pady=5)
-        self.missing_file_entry = tk.Entry(self.root, width=50)
-        self.missing_file_entry.insert(0, self.missing_file_path)  # Установка пути по умолчанию
-        self.missing_file_entry.pack(pady=5)
-        tk.Button(self.root, text="Выбрать файл", command=self.select_missing_file).pack(pady=5)
+        tk.Label(left_frame, text="Файл для сохранения пропущенных данных:").pack(pady=5, anchor="w")
+        self.missing_file_entry = tk.Entry(left_frame, width=50)
+        self.missing_file_entry.insert(0, self.missing_file_path)
+        self.missing_file_entry.pack(pady=5, anchor="w")
+        tk.Button(left_frame, text="Выбрать файл", command=self.select_missing_file).pack(pady=5, anchor="w")
 
         # Прогресс-бар
-        tk.Label(self.root, text="Прогресс:").pack(pady=5)
-        self.progress_bar = ttk.Progressbar(self.root, orient="horizontal", mode="determinate", length=300)
-        self.progress_bar.pack(pady=5)
-        self.progress_label = tk.Label(self.root, text="0%")
-        self.progress_label.pack(pady=5)
+        tk.Label(left_frame, text="Прогресс:").pack(pady=5, anchor="w")
+        self.progress_bar = ttk.Progressbar(left_frame, orient="horizontal", mode="determinate", length=300)
+        self.progress_bar.pack(pady=5, anchor="w")
+        self.progress_label = tk.Label(left_frame, text="0%")
+        self.progress_label.pack(pady=5, anchor="w")
 
         # Кнопка запуска обработки
-        tk.Button(self.root, text="Запустить обработку", command=self.start_processing).pack(pady=10)
+        tk.Button(left_frame, text="Запустить обработку", command=self.start_processing).pack(pady=10, anchor="w")
 
         # Поле для логов
-        tk.Label(self.root, text="Логи:").pack(pady=5)
-        self.log_text = ScrolledText(self.root, width=80, height=20)
+        tk.Label(right_frame, text="Логи:").pack(pady=5)
+        self.log_text = ScrolledText(right_frame, width=75, height=25)
         self.log_text.pack(pady=5)
 
         # Настройка логов
