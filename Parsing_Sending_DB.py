@@ -247,9 +247,9 @@ def status_au_updating(data):
         # Фиксируем изменения
         if conn_default:
             conn_default.rollback()
-        return {'ИНН АУ': {data.get('ИНН')},
+        return {'ИНН': {data.get('ИНН')},
                 'Должник ссылка': data.get('должник_ссылка'),
-                'Причина': 'Такой должник уже есть'}
+                'Причина': f'{e}'}
 
     finally:
         if cursor_default:
@@ -316,19 +316,19 @@ def status_updating(data):
         cursor_default.execute(query, values)
         logging.info('получилось отправить в status_updating для обновления статуса')
 
-        # SQL-запрос для вставки данных
-        query_default = '''
-                   UPDATE dolzhnik 
-                   SET ИНН_АУ = %s, текущий_статус = %s, Актуальность = %s
-                   WHERE Инн_Должника = %s
-                   '''
-
-        values_default = (
-            data.get('Инн_ау'), data.get('статус'), data.get('Актуальность'), data.get('ИНН')
-        )
-        # Выполняем запрос с передачей данных из словаря
-        cursor_default.execute(query_default, values_default)
-        logging.info('успешно отправил в таблицу dolzhnik ')
+        # # SQL-запрос для вставки данных
+        # query_default = '''
+        #            UPDATE dolzhnik
+        #            SET ИНН_АУ = %s, текущий_статус = %s, Актуальность = %s
+        #            WHERE Инн_Должника = %s
+        #            '''
+        #
+        # values_default = (
+        #     data.get('Инн_ау'), data.get('статус'), data.get('Актуальность'), data.get('ИНН')
+        # )
+        # # Выполняем запрос с передачей данных из словаря
+        # cursor_default.execute(query_default, values_default)
+        # logging.info('успешно отправил в таблицу dolzhnik ')
 
         # Фиксируем измене ния
         conn_default.commit()
@@ -339,9 +339,9 @@ def status_updating(data):
         # Фиксируем изменения
         if conn_default:
             conn_default.rollback()
-        return {'ИНН АУ': {data.get('ИНН')},
+        return {'ИНН': {data.get('ИНН')},
                 'Должник ссылка': data.get('должник_ссылка'),
-                'Причина': 'Такой должник уже есть'}
+                'Причина': f'{e}'}
     finally:
         if cursor_default:
             cursor_default.close()
@@ -368,18 +368,18 @@ def inactual_update(data):
             data.get('ИНН'), data.get('должник_ссылка'), data.get('Инн_ау'), data.get('Актуальность'),)
         cursor_default.execute(query, values)
 
-        # SQL-запрос для вставки данных
-        query_default = '''
-                           UPDATE dolzhnik 
-                           SET ИНН_АУ = %s, Актуальность = %s
-                           WHERE Должник_ссылка_ЕФРСБ = %s
-                           '''
-
-        values_default = (
-            data.get('Инн_ау'), data.get('Актуальность', ''), data.get('должник_ссылка')
-        )
-        # Выполняем запрос с передачей данных из словаря
-        cursor_default.execute(query_default, values_default)
+        # # SQL-запрос для вставки данных
+        # query_default = '''
+        #                    UPDATE dolzhnik
+        #                    SET ИНН_АУ = %s, Актуальность = %s
+        #                    WHERE Должник_ссылка_ЕФРСБ = %s
+        #                    '''
+        #
+        # values_default = (
+        #     data.get('Инн_ау'), data.get('Актуальность', ''), data.get('должник_ссылка')
+        # )
+        # # Выполняем запрос с передачей данных из словаря
+        # cursor_default.execute(query_default, values_default)
 
         # Фиксируем изменения
         conn_default.commit()
