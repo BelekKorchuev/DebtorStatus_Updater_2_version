@@ -26,9 +26,11 @@ class LogHandler(logging.Handler):
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("Обработка должников")
+        self.root.title("Актуализация Должников")
         self.input_file_path = ""
         self.missing_file_path = "missing_data.xlsx"
+        self.selected_column = None  # Хранение выбранного столбца
+        self.df_headers = []
         self.create_widgets()
 
     def create_widgets(self):
@@ -38,12 +40,22 @@ class App:
         self.file_entry.pack(pady=5)
         tk.Button(self.root, text="Выбрать файл", command=self.select_file).pack(pady=5)
 
-        # Выбор пути для сохранения пропущенных данных
-        tk.Label(self.root, text="Файл для пропущенных данных:").pack(pady=5)
+        # Выбор столбцов
+        tk.Label(self.root, text="Выберите столбцы:").pack(pady=5)
+        tk.Label(self.root, text="ИНН АУ:").pack()
+        self.inn_combobox = ttk.Combobox(self.root, state="readonly", width=50)
+        self.inn_combobox.pack(pady=5)
+
+        tk.Label(self.root, text="Ссылка на должника:").pack()
+        self.link_combobox = ttk.Combobox(self.root, state="readonly", width=50)
+        self.link_combobox.pack(pady=5)
+
+        # Выбор файла для сохранения пропущенных данных
+        tk.Label(self.root, text="Файл для сохранения пропущенных данных:").pack(pady=5)
         self.missing_file_entry = tk.Entry(self.root, width=50)
-        self.missing_file_entry.insert(0, self.missing_file_path)  # Устанавливаем значение по умолчанию
+        self.missing_file_entry.insert(0, self.missing_file_path)  # Установка пути по умолчанию
         self.missing_file_entry.pack(pady=5)
-        tk.Button(self.root, text="Выбрать место для сохранения", command=self.select_missing_file).pack(pady=5)
+        tk.Button(self.root, text="Выбрать файл", command=self.select_missing_file).pack(pady=5)
 
         # Прогресс-бар
         tk.Label(self.root, text="Прогресс:").pack(pady=5)
@@ -72,6 +84,7 @@ class App:
             self.input_file_path = file_path
             self.file_entry.delete(0, tk.END)
             self.file_entry.insert(0, file_path)
+            self.load_columns()
 
     def select_missing_file(self):
         file_path = filedialog.asksaveasfilename(
@@ -83,29 +96,47 @@ class App:
             self.missing_file_path = file_path
             self.missing_file_entry.delete(0, tk.END)
             self.missing_file_entry.insert(0, file_path)
-        else:
-            logging.warning("Пользователь не выбрал файл для сохранения пропущенных данных")
+
+    def load_columns(self):
+        try:
+            df = pd.read_excel(self.input_file_path, nrows=0)  # Читаем только заголовки
+            self.df_headers = df.columns.tolist()
+
+            # Обновляем список столбцов в выпадающем меню
+            self.inn_combobox['values'] = self.df_headers
+            self.link_combobox['values'] = self.df_headers
+            self.inn_combobox.current(0)  # Устанавливаем первый элемент как выбранный
+            self.link_combobox.current(1)  # Устанавливаем второй элемент как выбранный
+        except Exception as e:
+            logging.error(f"Ошибка при чтении столбцов: {e}")
+            messagebox.showerror("Ошибка", f"Не удалось загрузить столбцы из файла: {e}")
 
     def start_processing(self):
         if not self.input_file_path:
             messagebox.showerror("Ошибка", "Выберите файл для обработки!")
             return
+
+        inn_column = self.inn_combobox.get()
+        link_column = self.link_combobox.get()
+        if not inn_column or not link_column:
+            messagebox.showerror("Ошибка", "Выберите столбцы для ИНН АУ и Ссылки на должника!")
+            return
+
         if not self.missing_file_path:
-            messagebox.showerror("Ошибка", "Выберите путь для сохранения пропущенных данных!")
+            messagebox.showerror("Ошибка", "Выберите файл для сохранения пропущенных данных!")
             return
 
         # Запуск обработки в отдельном потоке
-        thread = Thread(target=self.run_main)
+        thread = Thread(target=self.run_main, args=(inn_column, link_column))
         thread.start()
 
-    def run_main(self):
+    def run_main(self, inn_column, link_column):
         try:
-            missing_file_path = self.missing_file_entry.get()
-            if not missing_file_path:
-                messagebox.showerror("Ошибка", "Выберите путь для сохранения пропущенных данных!")
-                return
+            logging.info(f"Начало обработки файла: {self.input_file_path}")
+            logging.info(f"Выбранные столбцы: ИНН АУ - {inn_column}, Ссылка должник - {link_column}")
+            logging.info(f"Пропущенные данные будут сохранены в файл: {self.missing_file_path}")
 
-            main(self.input_file_path, self.missing_file_path, self.update_progress)
+            main(self.input_file_path, self.missing_file_path, inn_column, link_column, self.update_progress)
             self.update_progress(100)  # Устанавливаем 100% после завершения
             messagebox.showinfo("Успех", "Обработка завершена!")
         except Exception as e:
@@ -134,7 +165,7 @@ def save_missing_data_to_excel(missing_data, file_name):
         logging.error(f"Ошибка при сохранении пропущенных данных в файл {file_name}: {e}")
 
 # Обновленный main
-def main(input_file_path, missing_file_path, update_progress):
+def main(input_file_path, missing_file_path, inn_column, link_column, update_progress):
     try:
         logging.info(f"Начало обработки файла: {input_file_path}")
         logging.info(f"Пропущенные данные будут сохранены в файл: {missing_file_path}")
@@ -147,13 +178,14 @@ def main(input_file_path, missing_file_path, update_progress):
             raise FileNotFoundError(f"Файл {input_file_path} не найден.")
 
         df = pd.read_excel(input_file_path, dtype=str)
+        logging.info(f"Загружено {len(df)} строк с выбранными столбцами.")
 
         if df.empty:
             raise ValueError(f"Файл {input_file_path} пуст.")
 
-        required_columns = ['ИНН АУ', 'Должник ссылка']
-        if not all(column in df.columns for column in required_columns):
-            raise ValueError(f"В Excel-файле должны быть столбцы: {', '.join(required_columns)}")
+        # Переименование выбранных столбцов
+        df = df.rename(columns={inn_column: 'ИНН АУ', link_column: 'Должник ссылка'})
+        logging.info(f"Столбцы переименованы: {inn_column} -> 'ИНН АУ', {link_column} -> 'Должник ссылка'")
 
         missing_data = []
         total_rows = len(df)
