@@ -31,6 +31,7 @@ class App:
         self.missing_file_path = "missing_data.xlsx"
         self.selected_column = None  # Хранение выбранного столбца
         self.df_headers = []
+        self.stop_processing = False  # Флаг остановки обработки
         self.create_widgets()
 
     def create_widgets(self):
@@ -76,8 +77,13 @@ class App:
         self.progress_label = tk.Label(left_frame, text="0%")
         self.progress_label.pack(pady=5, anchor="w")
 
-        # Кнопка запуска обработки
-        tk.Button(left_frame, text="Запустить обработку", command=self.start_processing).pack(pady=10, anchor="w")
+        # Кнопки управления
+        button_frame = tk.Frame(left_frame)
+        button_frame.pack(pady=10, anchor="w")
+
+        tk.Button(button_frame, text="Запустить обработку", command=self.start_processing).pack(side="left", padx=5)
+        tk.Button(button_frame, text="Остановить обработку", command=self.stop_processing_action).pack(side="left",
+                                                                                                       padx=5)
 
         # Поле для логов
         tk.Label(right_frame, text="Логи:").pack(pady=5)
@@ -89,6 +95,10 @@ class App:
         handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
         logging.getLogger().addHandler(handler)
         logging.getLogger().setLevel(logging.INFO)
+
+    def stop_processing_action(self):
+        self.stop_processing = True
+        logging.info("Остановка обработки данных...")
 
     def select_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
@@ -138,6 +148,7 @@ class App:
             messagebox.showerror("Ошибка", "Выберите файл для сохранения пропущенных данных!")
             return
 
+        self.stop_processing = False  # Сбрасываем флаг остановки
         # Запуск обработки в отдельном потоке
         thread = Thread(target=self.run_main, args=(inn_column, link_column))
         thread.start()
@@ -148,7 +159,7 @@ class App:
             logging.info(f"Выбранные столбцы: ИНН АУ - {inn_column}, Ссылка должник - {link_column}")
             logging.info(f"Пропущенные данные будут сохранены в файл: {self.missing_file_path}")
 
-            main(self.input_file_path, self.missing_file_path, inn_column, link_column, self.update_progress)
+            main(self.input_file_path, self.missing_file_path, inn_column, link_column, self.update_progress, self)
             self.update_progress(100)  # Устанавливаем 100% после завершения
             messagebox.showinfo("Успех", "Обработка завершена!")
         except Exception as e:
@@ -177,7 +188,7 @@ def save_missing_data_to_excel(missing_data, file_name):
         logging.error(f"Ошибка при сохранении пропущенных данных в файл {file_name}: {e}")
 
 # Обновленный main
-def main(input_file_path, missing_file_path, inn_column, link_column, update_progress):
+def main(input_file_path, missing_file_path, inn_column, link_column, update_progress, app_instance):
     try:
         logging.info(f"Начало обработки файла: {input_file_path}")
         logging.info(f"Пропущенные данные будут сохранены в файл: {missing_file_path}")
@@ -202,6 +213,10 @@ def main(input_file_path, missing_file_path, inn_column, link_column, update_pro
         missing_data = []
         total_rows = len(df)
         for index, row in df.iterrows():
+            if app_instance.stop_processing:  # Проверка флага остановки
+                logging.info("Обработка остановлена пользователем.")
+                break
+
             progress = ((index + 1) / total_rows) * 100
             update_progress(progress)
             logging.info(f"Прогресс: {progress:.2f}% (Строка {index + 1} из {total_rows})")
