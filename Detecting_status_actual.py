@@ -240,6 +240,8 @@ def search_act(driver, list_dic):
 
             temporary = {}
 
+            dic['статус'] = 'статус не определен'
+
             # Получение HTML-кода страницы
             soup = BeautifulSoup(driver.page_source, 'html.parser')
 
@@ -309,7 +311,6 @@ def search_act(driver, list_dic):
             dic['номер_дела'] = temporary.get('№ дела')
             dic['текст'] = temporary.get('текст')
 
-            dic['статус'] = temporary.get('Судебный акт', 'статус не определен')
             act_status = temporary.get('Судебный акт', '')
 
             if act_status == "об утверждении арбитражного управляющего":
@@ -324,6 +325,7 @@ def search_act(driver, list_dic):
                 logging.info(f'записал все данные нового АУ')
                 dic.update(arbitr_data)
 
+            dic['статус'] = temporary.get('Судебный акт', 'статус не определен')
             logging.info(f'НУЖНЫЙ акт')
 
             return dic
