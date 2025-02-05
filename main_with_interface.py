@@ -262,6 +262,7 @@ def main(input_file_path, missing_file_path, inn_column, link_column, update_pro
                 logging.info(f'is_parsed_arbitr: {is_parsed_arbitr}')
 
                 prepered_data = prepare_data_for_db(dict_of_data)
+                logging.info(prepered_data)
                 if is_parsed_arbitr is None:
                     error_db = status_updating(prepered_data)
                     if error_db:
