@@ -398,7 +398,7 @@ def inactual_update(data):
             conn_default.close()
 
 # парсинг основой инфы
-def parse_debtor_info(driver, link_debtor, inn_au):
+def parse_debtor_info(driver, link_debtor):
     try:
         driver.get(link_debtor)
     except Exception as e:
@@ -408,7 +408,6 @@ def parse_debtor_info(driver, link_debtor, inn_au):
     soup = BeautifulSoup(driver.page_source, 'html.parser')
 
     data = {
-        'Инн_ау': inn_au,
         'должник_ссылка': link_debtor,
         'Актуальность': "неактуален"
     }

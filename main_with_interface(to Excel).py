@@ -55,10 +55,6 @@ class App:
 
         # Выбор столбцов
         tk.Label(left_frame, text="Выберите столбцы:").pack(pady=5, anchor="w")
-        tk.Label(left_frame, text="ИНН АУ:").pack(anchor="w")
-        self.inn_combobox = ttk.Combobox(left_frame, state="readonly", width=50)
-        self.inn_combobox.pack(pady=5, anchor="w")
-
         tk.Label(left_frame, text="Ссылка на должника:").pack(anchor="w")
         self.link_combobox = ttk.Combobox(left_frame, state="readonly", width=50)
         self.link_combobox.pack(pady=5, anchor="w")
@@ -69,6 +65,12 @@ class App:
         self.missing_file_entry.insert(0, self.missing_file_path)
         self.missing_file_entry.pack(pady=5, anchor="w")
         tk.Button(left_frame, text="Выбрать файл", command=self.select_missing_file).pack(pady=5, anchor="w")
+
+        # Выбор файла для сохранения обработанных данных
+        tk.Label(left_frame, text="Файл для сохранения обработанных данных:").pack(pady=5, anchor="w")
+        self.output_file_entry = tk.Entry(left_frame, width=50)
+        self.output_file_entry.pack(pady=5, anchor="w")
+        tk.Button(left_frame, text="Выбрать файл", command=self.select_output_file).pack(pady=5, anchor="w")
 
         # Прогресс-бар
         tk.Label(left_frame, text="Прогресс:").pack(pady=5, anchor="w")
@@ -108,6 +110,17 @@ class App:
             self.file_entry.insert(0, file_path)
             self.load_columns()
 
+    def select_output_file(self):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            title="Выберите файл для сохранения обработанных данных"
+        )
+        if file_path:
+            self.output_file_path = file_path
+            self.output_file_entry.delete(0, tk.END)
+            self.output_file_entry.insert(0, file_path)
+
     def select_missing_file(self):
         file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
@@ -125,10 +138,8 @@ class App:
             self.df_headers = df.columns.tolist()
 
             # Обновляем список столбцов в выпадающем меню
-            self.inn_combobox['values'] = self.df_headers
             self.link_combobox['values'] = self.df_headers
-            self.inn_combobox.current(0)  # Устанавливаем первый элемент как выбранный
-            self.link_combobox.current(1)  # Устанавливаем второй элемент как выбранный
+            self.link_combobox.current(0)  # Устанавливаем второй элемент как выбранный
         except Exception as e:
             logging.error(f"Ошибка при чтении столбцов: {e}")
             messagebox.showerror("Ошибка", f"Не удалось загрузить столбцы из файла: {e}")
@@ -138,30 +149,40 @@ class App:
             messagebox.showerror("Ошибка", "Выберите файл для обработки!")
             return
 
-        inn_column = self.inn_combobox.get()
         link_column = self.link_combobox.get()
-        if not inn_column or not link_column:
-            messagebox.showerror("Ошибка", "Выберите столбцы для ИНН АУ и Ссылки на должника!")
-            return
 
         if not self.missing_file_path:
             messagebox.showerror("Ошибка", "Выберите файл для сохранения пропущенных данных!")
             return
 
+        if not hasattr(self, 'output_file_path') or not self.output_file_path:
+            messagebox.showerror("Ошибка", "Выберите файл для сохранения обработанных данных!")
+            return
+
         self.stop_processing = False  # Сбрасываем флаг остановки
         # Запуск обработки в отдельном потоке
-        thread = Thread(target=self.run_main, args=(inn_column, link_column))
+        thread = Thread(target=self.run_main, args=(link_column,))
         thread.start()
 
-    def run_main(self, inn_column, link_column):
+    def run_main(self, link_column):
         try:
             logging.info(f"Начало обработки файла: {self.input_file_path}")
-            logging.info(f"Выбранные столбцы: ИНН АУ - {inn_column}, Ссылка должник - {link_column}")
+            logging.info(f"Выбранные столбцы: Ссылка должник - {link_column}")
             logging.info(f"Пропущенные данные будут сохранены в файл: {self.missing_file_path}")
 
-            main(self.input_file_path, self.missing_file_path, inn_column, link_column, self.update_progress, self)
+            main(
+                self.input_file_path,
+                self.missing_file_path,
+                self.output_file_path,
+                link_column,
+                self.update_progress,
+                self)
+
             self.update_progress(100)  # Устанавливаем 100% после завершения
-            messagebox.showinfo("Успех", "Обработка завершена!")
+            if not self.stop_processing:  # Если пользователь не прерывал обработку
+                messagebox.showinfo("Успех", "Обработка завершена!")
+            else:
+                messagebox.showinfo("Прервано", "Обработка была остановлена!")
         except Exception as e:
             logging.error(f"Ошибка выполнения: {e}")
             messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
@@ -188,7 +209,7 @@ def save_missing_data_to_excel(missing_data, file_name):
         logging.error(f"Ошибка при сохранении пропущенных данных в файл {file_name}: {e}")
 
 # Обновленный main
-def main(input_file_path, missing_file_path, inn_column, link_column, update_progress, app_instance):
+def main(input_file_path, missing_file_path, output_file_path, link_column, update_progress, app_instance):
     try:
         logging.info(f"Начало обработки файла: {input_file_path}")
         logging.info(f"Пропущенные данные будут сохранены в файл: {missing_file_path}")
@@ -207,9 +228,10 @@ def main(input_file_path, missing_file_path, inn_column, link_column, update_pro
             raise ValueError(f"Файл {input_file_path} пуст.")
 
         # Переименование выбранных столбцов
-        df = df.rename(columns={inn_column: 'ИНН АУ', link_column: 'Должник ссылка'})
-        logging.info(f"Столбцы переименованы: {inn_column} -> 'ИНН АУ', {link_column} -> 'Должник ссылка'")
+        df = df.rename(columns={link_column: 'Должник ссылка'})
+        logging.info(f"Столбцы переименованы: {link_column} -> 'Должник ссылка'")
 
+        processed_data = []
         missing_data = []
         total_rows = len(df)
         for index, row in df.iterrows():
@@ -232,13 +254,13 @@ def main(input_file_path, missing_file_path, inn_column, link_column, update_pro
                 data = detecting_actualed(driver, soup, main_data)
                 # если должник неактуален, то сохранение и переход к след должнику
                 if "Не актуален" in data:
-                    inactual_update(main_data)
+                    processed_data.append(main_data)
                     logging.info(f"Должник {link_debtor} не актуален, пропускаем.")
                     continue
 
                 list_of_act = source_act_with_pagination(driver, soup, data)
                 if not list_of_act:
-                    inactual_update(main_data)
+                    processed_data.append(main_data)
                     logging.info(f"Должник {link_debtor} не актуален, пропускаем.")
                     continue
 
@@ -261,19 +283,18 @@ def main(input_file_path, missing_file_path, inn_column, link_column, update_pro
 
                 prepered_data = prepare_data_for_db(dict_of_data)
                 logging.info(prepered_data)
-                if is_parsed_arbitr is None:
-                    error_db = status_updating(prepered_data)
-                    if error_db:
-                        missing_data.append(error_db)
-                else:
-                    error_db = status_au_updating(prepered_data)
-                    if error_db:
-                        missing_data.append(error_db)
 
+                processed_data.append(prepered_data)
+                logging.info(f'Успешная сохранение данных')
 
             except Exception as e:
                 missing_data.append({'Должник ссылка': str(link_debtor), 'Причина': str(e)})
                 driver = restart_driver(driver)
+
+        if processed_data:
+            processed_df = pd.DataFrame(processed_data)
+            processed_df.to_excel(output_file_path, index=False, engine="openpyxl")
+            logging.info(f"Обработанные данные сохранены в файл: {output_file_path}")
 
         if missing_data:
             save_missing_data_to_excel(missing_data, missing_file_path)
